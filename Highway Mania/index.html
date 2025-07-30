@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <link rel="icon" href="https://i.imgur.com/e4oXN9E.png" type="image/png">
+  <title>Highway Mania</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: sans-serif;
+      background: #222;
+      overflow: hidden;
+      touch-action: manipulation;
+      user-select: none;
+    }
+    #game {
+      position: relative;
+      width: 100%;
+      height: 100vh;
+      background: #444;
+    }
+    .lane-divider {
+      position: absolute;
+      width: 2px;
+      height: 100%;
+      background: repeating-linear-gradient(
+        white 0 10px,
+        transparent 10px 20px
+      );
+      top: 0;
+    }
+    .car, .enemy {
+      position: absolute;
+      width: 60px;
+      height: 100px;
+      border-radius: 12px;
+      background-color: #ff4d4d;
+      box-shadow: inset 0 -4px 0 rgba(0,0,0,0.4), 0 4px 10px rgba(0,0,0,0.5);
+    }
+    .enemy {
+      background-color: #1abc9c;
+    }
+    .car::before, .enemy::before {
+      content: "";
+      position: absolute;
+      top: 5px;
+      left: 10px;
+      width: 40px;
+      height: 10px;
+      background-color: white;
+      border-radius: 3px;
+    }
+    .car::after, .enemy::after {
+      content: "";
+      position: absolute;
+      bottom: 8px;
+      left: 8px;
+      width: 44px;
+      height: 8px;
+      background-color: black;
+      border-radius: 4px;
+    }
+    #score {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      color: white;
+      font-size: 18px;
+      z-index: 10;
+    }
+    #game-over {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%,-50%);
+      color: white;
+      font-size: 28px;
+      text-align: center;
+      display: none;
+      z-index: 10;
+    }
+    #controls {
+      position: absolute;
+      bottom: 15px;
+      width: 100%;
+      display: flex;
+      justify-content: space-evenly;
+      z-index: 10;
+    }
+    .btn {
+      background: rgba(255,255,255,0.2);
+      color: white;
+      padding: 16px;
+      font-size: 22px;
+      border: none;
+      border-radius: 6px;
+      width: 40%;
+    }
+    
+    .restart {
+      background-color: rgba(200,200,200,0.5);
+      border: none;
+      border-radius: 10px;
+      height: 7%;
+      width: 35%;
+      color: white;
+    }
+  </style>
+</head>
+<body oncontextmenu="return false">
+  <div id="game">
+    <div class="score" id="score">Score: 0</div>
+    <div id="game-over">
+      🚨 GAME OVER 🚨<br><br>
+      <button class="restart" onclick="restart()">Play Again</button>
+    </div>
+    <div id="player" class="car"></div>
+    <div id="controls">
+      <button class="btn" onclick="moveLeft()">⬅️</button>
+      <button class="btn" onclick="moveRight()">➡️</button>
+    </div>
+  </div>
+
+  <script>
+    const game = document.getElementById("game");
+    const player = document.getElementById("player");
+    const scoreEl = document.getElementById("score");
+    const gameOverEl = document.getElementById("game-over");
+    const laneCount = 3;
+    let laneWidth = window.innerWidth / laneCount;
+    let currentLane = 1;
+    let enemies = [];
+    let score = 0;
+    let running = true;
+    let spawnTimer = 0;
+    let spawnInterval = 250; // frames before new car appears
+    let speed = 4;
+
+    function setPlayerLane(lane) {
+      currentLane = Math.max(0, Math.min(laneCount - 1, lane));
+      player.style.left = (laneWidth * currentLane + laneWidth / 2 - 30) + "px";
+      player.style.bottom = "10px";
+    }
+    setPlayerLane(currentLane);
+
+    function createEnemy() {
+      const enemy = document.createElement("div");
+      enemy.className = "enemy";
+      const lane = Math.floor(Math.random() * laneCount);
+      enemy.style.left = (laneWidth * lane + laneWidth / 2 - 30) + "px";
+      enemy.style.top = "-120px";
+      game.appendChild(enemy);
+      enemies.push({ el: enemy, lane, y: -120, passed: false });
+    }
+
+    function loop() {
+      if (!running) return;
+
+      speed += 0.002;
+      spawnTimer++;
+      
+      if (spawnTimer > spawnInterval) {
+        createEnemy();
+        spawnTimer = 0;
+      }
+
+      enemies.forEach(e => {
+        e.y += speed;
+        e.el.style.top = e.y + "px";
+
+        if (
+          e.y > window.innerHeight &&
+          !e.passed
+        ) {
+          score++;
+          scoreEl.textContent = "Score: " + score;
+          e.passed = true;
+        }
+
+        if (
+          e.y + 100 > window.innerHeight - 110 &&
+          e.lane === currentLane &&
+          e.y < window.innerHeight - 10
+        ) {
+          endGame();
+        }
+      });
+
+      enemies = enemies.filter(e => e.y < window.innerHeight + 100);
+
+      requestAnimationFrame(loop);
+    }
+
+    loop();
+
+    function endGame() {
+      running = false;
+      gameOverEl.style.display = "block";
+    }
+
+    function restart() {
+      enemies.forEach(e => game.removeChild(e.el));
+      enemies = [];
+      score = 0;
+      speed = 4;
+      spawnInterval = 250;
+      scoreEl.textContent = "Score: 0";
+      gameOverEl.style.display = "none";
+      running = true;
+      setPlayerLane(1);
+      loop();
+    }
+
+    function moveLeft() {
+      setPlayerLane(currentLane - 1);
+    }
+    function moveRight() {
+      setPlayerLane(currentLane + 1);
+    }
+
+    document.addEventListener("keydown", e => {
+      if (["ArrowLeft", "a", "A"].includes(e.key)) moveLeft();
+      if (["ArrowRight", "d", "D"].includes(e.key)) moveRight();
+    });
+
+    let touchStartX = 0;
+    document.addEventListener("touchstart", e => {
+      touchStartX = e.changedTouches[0].clientX;
+    });
+    document.addEventListener("touchend", e => {
+      let deltaX = e.changedTouches[0].clientX - touchStartX;
+      if (Math.abs(deltaX) > 30) {
+        if (deltaX < 0) moveLeft();
+        else moveRight();
+      }
+    });
+
+    window.addEventListener("resize", () => {
+      laneWidth = window.innerWidth / laneCount;
+      setPlayerLane(currentLane);
+      document.querySelectorAll(".lane-divider").forEach(div => game.removeChild(div));
+      drawLaneDividers();
+    });
+
+    function drawLaneDividers() {
+      for (let i = 1; i < laneCount; i++) {
+        const divider = document.createElement("div");
+        divider.className = "lane-divider";
+        divider.style.left = (laneWidth * i - 1) + "px";
+        game.appendChild(divider);
+      }
+    }
+    
+    setInterval(() => {
+      if (spawnInterval > 50) {
+        spawnInterval -= 1;
+      }
+    }, 1000);
+    
+    drawLaneDividers();
+  </script>
+</body>
+</html>
